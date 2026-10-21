@@ -319,8 +319,11 @@ static DWORD WINAPI spu_pcsample_thread(LPVOID p)
 
 static mfc_engine* mfc_for(spu_context* ctx)
 {
+    /* Decide once. mfc_for runs on every channel op (eight or nine per DMA), and
+     * an unset SPU_PCSAMPLE used to be looked up on each of them: getenv takes
+     * the CRT's environment lock, so busy SPU workers queued on it. */
     { static volatile LONG started = 0; const char* e;
-      if (!started && (e = getenv("SPU_PCSAMPLE")) && !InterlockedExchange(&started, 1))
+      if (!started && !InterlockedExchange(&started, 1) && (e = getenv("SPU_PCSAMPLE")))
           CreateThread(NULL, 0, spu_pcsample_thread, (LPVOID)(uintptr_t)(atoi(e) * 1000), 0, NULL); }
     AcquireSRWLockShared(&s_mfc_claim_lock);
     for (spu_mfc_slot* slot = s_mfc_slots; slot; slot = slot->next) {
